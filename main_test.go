@@ -6,28 +6,27 @@ import (
 	"testing"
 	"net/http"
 	"github.com/ant0ine/go-json-rest/rest/test"
+	"github.com/bcolucci/moocapic-rating/rating"
 )
-
-const HOST = "http://localhost/"
 
 var handler http.Handler
 
 func Setup() {
-	conf := DefaultConf()
-	api = NewRatingApi(conf)
+	conf := rating.DevConf()
+	api = rating.NewApi(conf)
 	handler = api.MakeHandler()
 	api.Database.DropDatabase()
 }
 
 func AddAuth(r *http.Request) {
-	ts := CurrentTimeStr()
+	ts := rating.CurrentTimeStr()
 	key := string(api.PKeyMiddleware.BuildKey(api.Conf.ApiKey, ts))
 	r.Header.Set("ts", ts)
 	r.Header.Set("key", key)
 }
 
-func CreateRating() *Rating {
-	return &Rating{
+func CreateRating() *rating.Rating {
+	return &rating.Rating{
 		Tenant: "MSPI",
 		Category: "Products",
 		ItemId: "someProductId",
@@ -38,7 +37,7 @@ func CreateRating() *Rating {
 func TestNoAuth(t *testing.T) {
 	Setup()
 	defer api.Session.Close()
-	r := test.RunRequest(t, handler, test.MakeSimpleRequest("GET", HOST, nil))
+	r := test.RunRequest(t, handler, test.MakeSimpleRequest("GET", api.Conf.Host.Addr, nil))
 	r.CodeIs(500)
 	r.ContentTypeIsJson()
 }
@@ -46,9 +45,9 @@ func TestNoAuth(t *testing.T) {
 func TestInvalidAuth(t *testing.T) {
 	Setup()
 	defer api.Session.Close()
-	req := test.MakeSimpleRequest("GET", HOST, nil)
+	req := test.MakeSimpleRequest("GET", api.Conf.Host.Addr, nil)
 	AddAuth(req)
-	req.Header.Set("ts", strconv.FormatInt(CurrentTime() + 1, 10))
+	req.Header.Set("ts", strconv.FormatInt(rating.CurrentTime() + 1, 10))
 	r := test.RunRequest(t, handler, req)
 	r.CodeIs(500)
 	r.ContentTypeIsJson()
@@ -57,7 +56,7 @@ func TestInvalidAuth(t *testing.T) {
 func TestGetAllEmpty(t *testing.T) {
 	Setup()
 	defer api.Session.Close()
-	req := test.MakeSimpleRequest("GET", HOST, nil)
+	req := test.MakeSimpleRequest("GET", api.Conf.Host.Addr, nil)
 	AddAuth(req)
 	r := test.RunRequest(t, handler, req)
 	r.CodeIs(200)
@@ -69,7 +68,7 @@ func TestSave(t *testing.T) {
 	Setup()
 	defer api.Session.Close()
 	rating := CreateRating()
-	req := test.MakeSimpleRequest("POST", HOST, rating)
+	req := test.MakeSimpleRequest("POST", api.Conf.Host.Addr, rating)
 	AddAuth(req)
 	r := test.RunRequest(t, handler, req)
 	r.CodeIs(200)
@@ -82,13 +81,13 @@ func TestGetAll(t *testing.T) {
 	
 	// save one
 	rating := CreateRating()
-	req := test.MakeSimpleRequest("POST", HOST, rating)
+	req := test.MakeSimpleRequest("POST", api.Conf.Host.Addr, rating)
 	AddAuth(req)
 	r := test.RunRequest(t, handler, req)
 	r.CodeIs(200)
 	
 	// get all
-	req = test.MakeSimpleRequest("GET", HOST, nil)
+	req = test.MakeSimpleRequest("GET", api.Conf.Host.Addr, nil)
 	AddAuth(req)
 	r = test.RunRequest(t, handler, req)
 	r.CodeIs(200)

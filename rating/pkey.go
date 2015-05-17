@@ -1,4 +1,4 @@
-package middleware
+package rating
 
 import (
     "io"

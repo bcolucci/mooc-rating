@@ -1,0 +1,14 @@
+{
+	"Env": "dev",
+	"ApiKey": "RZPr/WqLfc#?:/^%-j%wl*d2Vg~v$8",
+	"Host": {
+		"Addr": "http://localhost:8080/",
+		"Port": ":8080"
+	},
+	"DB": {
+		"Host": "localhost",
+		"Name": "ratings",
+		"Col": "ratings",
+		"Drop": true
+	}
+}
