@@ -2,11 +2,9 @@ package main
 
 import (
 	//"fmt"
-	"time"
-	//"reflect"
 	"strconv"
-	"net/http"
 	"testing"
+	"net/http"
 	"github.com/ant0ine/go-json-rest/rest/test"
 )
 
@@ -21,17 +19,20 @@ func Setup() {
 	api.Database.DropDatabase()
 }
 
-func CurrentTime() int64 {
-	return time.Now().Unix()
-}
-func CurrentTimeStr() string {
-	return strconv.FormatInt(CurrentTime(), 10)
-}
-
 func AddAuth(r *http.Request) {
 	ts := CurrentTimeStr()
+	key := string(api.PKeyMiddleware.BuildKey(api.Conf.ApiKey, ts))
 	r.Header.Set("ts", ts)
-	r.Header.Set("key", string(api.BuildKey(api.Conf.ApiKey, ts)))
+	r.Header.Set("key", key)
+}
+
+func CreateRating() *Rating {
+	return &Rating{
+		Tenant: "MSPI",
+		Category: "Products",
+		ItemId: "someProductId",
+		Rating: 3,
+		RatingOn: 5}
 }
 
 func TestNoAuth(t *testing.T) {
@@ -67,7 +68,7 @@ func TestGetAllEmpty(t *testing.T) {
 func TestSave(t *testing.T) {
 	Setup()
 	defer api.Session.Close()
-	rating := &Rating{"MSPI", "Products", "someProductId", 3, 5}
+	rating := CreateRating()
 	req := test.MakeSimpleRequest("POST", HOST, rating)
 	AddAuth(req)
 	r := test.RunRequest(t, handler, req)
@@ -80,7 +81,7 @@ func TestGetAll(t *testing.T) {
 	defer api.Session.Close()
 	
 	// save one
-	rating := &Rating{"MSPI", "Products", "someProductId", 3, 5}
+	rating := CreateRating()
 	req := test.MakeSimpleRequest("POST", HOST, rating)
 	AddAuth(req)
 	r := test.RunRequest(t, handler, req)
@@ -94,11 +95,7 @@ func TestGetAll(t *testing.T) {
 	r.ContentTypeIsJson()
 	
 	//TODO compare returned Rating
-	//rRating := []Rating{}
-	//r.DecodeJsonPayload(rRating)
-	//fmt.Println(rating)
-	//fmt.Println(rRating)
-	//if !reflect.DeepEqual(rating, rRating) {
-	//	t.Fatal("Saved Rating is not equal")
-	//}
+	//ratings := []Rating{}
+	//r.DecodeJsonPayload(ratings)
+	//fmt.Println(ratings)
 }

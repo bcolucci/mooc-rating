@@ -1,17 +1,16 @@
 package main
 
 import (
-    "io"
     "log"
-    "bytes"
     "net/http"
-    "crypto/md5"
-    "github.com/ant0ine/go-json-rest/rest"   
 	"gopkg.in/mgo.v2"
     "gopkg.in/mgo.v2/bson"
+    "github.com/ant0ine/go-json-rest/rest"
+    mdw "github.com/bcolucci/moocapic-rating/middleware"
 )
 
 type Rating struct {
+    ID bson.ObjectId `bson:"_id,omitempty"`
     Tenant string
     Category string
     ItemId string
@@ -35,12 +34,11 @@ func DefaultConf() *RatingApiConf {
 type RatingApi struct {
     rest.Api
     Conf *RatingApiConf
+    PKeyMiddleware *mdw.PKeyMiddleware
     Session *mgo.Session
     Database *mgo.Database
     Ratings *mgo.Collection
 }
-
-type CheckPKeyMiddleware struct {}
 
 var api *RatingApi
 
@@ -54,43 +52,19 @@ func main() {
     log.Fatal(http.ListenAndServe(api.Conf.Port, api.MakeHandler()))
 }
 
-func (pkm *CheckPKeyMiddleware) MiddlewareFunc(h rest.HandlerFunc) rest.HandlerFunc {
-	return func(w rest.ResponseWriter, r *rest.Request) {
-        ts := r.Header.Get("ts")
-        if ts == "" {
-            rest.Error(w, "ts parameter required", http.StatusInternalServerError)
-        }
-        key := r.Header.Get("key")
-        if key == "" {
-            rest.Error(w, "key parameter required", http.StatusInternalServerError)
-        }
-        expKey := api.BuildKey(api.Conf.ApiKey, ts)
-        if !bytes.Equal(expKey, []byte(key)) {
-            rest.Error(w, "Authentification failed", http.StatusInternalServerError)
-        }
-        h(w, r)
-	}
-}
-
 func NewRatingApi(conf *RatingApiConf) *RatingApi {
     api := &RatingApi{}
     api.Conf = conf
+    api.PKeyMiddleware = mdw.NewPKeyMiddleware(conf.ApiKey)
     if api.Conf.Env == "dev" {
         api.Use(rest.DefaultDevStack...)  
     } else {
         api.Use(rest.DefaultProdStack...)  
     }
-    api.Use(&CheckPKeyMiddleware{})
+    api.Use(api.PKeyMiddleware)
 	api.loadRoutes()
     api.loadDb()
     return api
-}
-
-func (api *RatingApi) BuildKey(pkey string, ts string) []byte {
-	h := md5.New()
-    io.WriteString(h, pkey)
-    io.WriteString(h, ts)
-    return h.Sum(nil)
 }
 
 func (api *RatingApi) loadRoutes() {
@@ -130,5 +104,5 @@ func (api *RatingApi) Save(w rest.ResponseWriter, r *rest.Request) {
         rest.Error(w, err.Error(), http.StatusInternalServerError)
     }
     api.Ratings.Insert(rating)
-    w.WriteJson(&rating)
+    w.WriteJson(rating.ID)
 }
